@@ -14,9 +14,9 @@ import {
   endOfDay,
 } from "date-fns";
 import { toDate, formatInTimeZone } from "date-fns-tz";
-import { DateRange } from "react-day-picker";
-import { cva, VariantProps } from "class-variance-authority";
-
+import type { DateRange } from "react-day-picker";
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,27 +25,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const months = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 const multiSelectVariants = cva(
@@ -79,6 +73,8 @@ interface CalendarDatePickerProps
   closeOnSelect?: boolean;
   numberOfMonths?: 1 | 2;
   yearsRange?: number;
+  minYear?: number;
+  maxYear?: number;
   onDateSelect: (range: { from: Date; to: Date }) => void;
 }
 
@@ -94,6 +90,8 @@ export const CalendarDatePicker = React.forwardRef<
       closeOnSelect = false,
       numberOfMonths = 2,
       yearsRange = 10,
+      minYear = 1000,
+      maxYear = 3000,
       onDateSelect,
       variant,
       ...props
@@ -102,7 +100,7 @@ export const CalendarDatePicker = React.forwardRef<
   ) => {
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
     const [selectedRange, setSelectedRange] = React.useState<string | null>(
-      numberOfMonths === 2 ? "This Year" : "Today"
+      numberOfMonths === 2 ? "Este Ano" : "Hoje"
     );
     const [monthFrom, setMonthFrom] = React.useState<Date | undefined>(
       date?.from
@@ -119,6 +117,20 @@ export const CalendarDatePicker = React.forwardRef<
     const [highlightedPart, setHighlightedPart] = React.useState<string | null>(
       null
     );
+    
+    // Estados para autocompletar
+    const [monthFromInput, setMonthFromInput] = React.useState("");
+    const [yearFromInput, setYearFromInput] = React.useState("");
+    const [monthToInput, setMonthToInput] = React.useState("");
+    const [yearToInput, setYearToInput] = React.useState("");
+    const [showMonthFromDropdown, setShowMonthFromDropdown] = React.useState(false);
+    const [showYearFromDropdown, setShowYearFromDropdown] = React.useState(false);
+    const [showMonthToDropdown, setShowMonthToDropdown] = React.useState(false);
+    const [showYearToDropdown, setShowYearToDropdown] = React.useState(false);
+    const [isEditingMonthFrom, setIsEditingMonthFrom] = React.useState(false);
+    const [isEditingYearFrom, setIsEditingYearFrom] = React.useState(false);
+    const [isEditingMonthTo, setIsEditingMonthTo] = React.useState(false);
+    const [isEditingYearTo, setIsEditingYearTo] = React.useState(false);
 
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -163,18 +175,18 @@ export const CalendarDatePicker = React.forwardRef<
       setSelectedRange(null);
       if (part === "from") {
         if (yearFrom !== undefined) {
-          if (newMonthIndex < 0 || newMonthIndex > yearsRange + 1) return;
+          if (newMonthIndex < 0 || newMonthIndex > 11) return;
           const newMonth = new Date(yearFrom, newMonthIndex, 1);
           const from =
             numberOfMonths === 2
               ? startOfMonth(toDate(newMonth, { timeZone }))
               : date?.from
-              ? new Date(
-                  date.from.getFullYear(),
-                  newMonth.getMonth(),
-                  date.from.getDate()
-                )
-              : newMonth;
+                ? new Date(
+                    date.from.getFullYear(),
+                    newMonth.getMonth(),
+                    date.from.getDate()
+                  )
+                : newMonth;
           const to =
             numberOfMonths === 2
               ? date.to
@@ -189,7 +201,7 @@ export const CalendarDatePicker = React.forwardRef<
         }
       } else {
         if (yearTo !== undefined) {
-          if (newMonthIndex < 0 || newMonthIndex > yearsRange + 1) return;
+          if (newMonthIndex < 0 || newMonthIndex > 11) return;
           const newMonth = new Date(yearTo, newMonthIndex, 1);
           const from = date.from
             ? startOfDay(toDate(date.from, { timeZone }))
@@ -209,88 +221,117 @@ export const CalendarDatePicker = React.forwardRef<
 
     const handleYearChange = (newYear: number, part: string) => {
       setSelectedRange(null);
+      if (newYear < minYear || newYear > maxYear) return;
+      
       if (part === "from") {
-        if (years.includes(newYear)) {
-          const newMonth = monthFrom
-            ? new Date(newYear, monthFrom ? monthFrom.getMonth() : 0, 1)
-            : new Date(newYear, 0, 1);
-          const from =
-            numberOfMonths === 2
-              ? startOfMonth(toDate(newMonth, { timeZone }))
-              : date.from
+        const newMonth = monthFrom
+          ? new Date(newYear, monthFrom ? monthFrom.getMonth() : 0, 1)
+          : new Date(newYear, 0, 1);
+        const from =
+          numberOfMonths === 2
+            ? startOfMonth(toDate(newMonth, { timeZone }))
+            : date.from
               ? new Date(newYear, newMonth.getMonth(), date.from.getDate())
               : newMonth;
-          const to =
-            numberOfMonths === 2
-              ? date.to
-                ? endOfDay(toDate(date.to, { timeZone }))
-                : endOfMonth(toDate(newMonth, { timeZone }))
-              : from;
-          if (from <= to) {
-            onDateSelect({ from, to });
-            setYearFrom(newYear);
-            setMonthFrom(newMonth);
-            setYearTo(date.to?.getFullYear());
-            setMonthTo(date.to);
-          }
+        const to =
+          numberOfMonths === 2
+            ? date.to
+              ? endOfDay(toDate(date.to, { timeZone }))
+              : endOfMonth(toDate(newMonth, { timeZone }))
+            : from;
+        if (from <= to) {
+          onDateSelect({ from, to });
+          setYearFrom(newYear);
+          setMonthFrom(newMonth);
+          setYearTo(date.to?.getFullYear());
+          setMonthTo(date.to);
         }
       } else {
-        if (years.includes(newYear)) {
-          const newMonth = monthTo
-            ? new Date(newYear, monthTo.getMonth(), 1)
-            : new Date(newYear, 0, 1);
-          const from = date.from
-            ? startOfDay(toDate(date.from, { timeZone }))
-            : startOfMonth(toDate(newMonth, { timeZone }));
-          const to =
-            numberOfMonths === 2
-              ? endOfMonth(toDate(newMonth, { timeZone }))
-              : from;
-          if (from <= to) {
-            onDateSelect({ from, to });
-            setYearTo(newYear);
-            setMonthTo(newMonth);
-            setYearFrom(date.from?.getFullYear());
-            setMonthFrom(date.from);
-          }
+        const newMonth = monthTo
+          ? new Date(newYear, monthTo.getMonth(), 1)
+          : new Date(newYear, 0, 1);
+        const from = date.from
+          ? startOfDay(toDate(date.from, { timeZone }))
+          : startOfMonth(toDate(newMonth, { timeZone }));
+        const to =
+          numberOfMonths === 2
+            ? endOfMonth(toDate(newMonth, { timeZone }))
+            : from;
+        if (from <= to) {
+          onDateSelect({ from, to });
+          setYearTo(newYear);
+          setMonthTo(newMonth);
+          setYearFrom(date.from?.getFullYear());
+          setMonthFrom(date.from);
         }
       }
     };
 
+    // Função para filtrar meses baseado no input
+    const getFilteredMonths = (input: string) => {
+      if (!input) return months;
+      return months.filter(month => 
+        month.toLowerCase().includes(input.toLowerCase())
+      );
+    };
+
+    // Função para gerar anos baseado no input
+    const getFilteredYears = (input: string) => {
+      if (!input) {
+        // Se não há input, mostra o range padrão
+        const today = new Date();
+        return Array.from(
+          { length: yearsRange + 1 },
+          (_, i) => today.getFullYear() - yearsRange / 2 + i
+        );
+      }
+      
+      const inputNum = parseInt(input);
+      if (isNaN(inputNum)) return [];
+      
+      // Gera anos próximos ao que foi digitado
+      const years = [];
+      const startYear = Math.max(minYear, inputNum - 5);
+      const endYear = Math.min(maxYear, inputNum + 5);
+      
+      for (let year = startYear; year <= endYear; year++) {
+        if (year.toString().includes(input)) {
+          years.push(year);
+        }
+      }
+      
+      return years.sort((a, b) => Math.abs(a - inputNum) - Math.abs(b - inputNum));
+    };
+
     const today = new Date();
 
-    const years = Array.from(
-      { length: yearsRange + 1 },
-      (_, i) => today.getFullYear() - yearsRange / 2 + i
-    );
-
     const dateRanges = [
-      { label: "Today", start: today, end: today },
-      { label: "Yesterday", start: subDays(today, 1), end: subDays(today, 1) },
+      { label: "Hoje", start: today, end: today },
+      { label: "Ontem", start: subDays(today, 1), end: subDays(today, 1) },
       {
-        label: "This Week",
+        label: "Esta Semana",
         start: startOfWeek(today, { weekStartsOn: 1 }),
         end: endOfWeek(today, { weekStartsOn: 1 }),
       },
       {
-        label: "Last Week",
+        label: "Semana Passada",
         start: subDays(startOfWeek(today, { weekStartsOn: 1 }), 7),
         end: subDays(endOfWeek(today, { weekStartsOn: 1 }), 7),
       },
-      { label: "Last 7 Days", start: subDays(today, 6), end: today },
+      { label: "Últimos 7 Dias", start: subDays(today, 6), end: today },
       {
-        label: "This Month",
+        label: "Este Mês",
         start: startOfMonth(today),
         end: endOfMonth(today),
       },
       {
-        label: "Last Month",
+        label: "Mês Passado",
         start: startOfMonth(subDays(today, today.getDate())),
         end: endOfMonth(subDays(today, today.getDate())),
       },
-      { label: "This Year", start: startOfYear(today), end: endOfYear(today) },
+      { label: "Este Ano", start: startOfYear(today), end: endOfYear(today) },
       {
-        label: "Last Year",
+        label: "Ano Passado",
         start: startOfYear(subDays(today, 365)),
         end: endOfYear(subDays(today, 365)),
       },
@@ -304,7 +345,8 @@ export const CalendarDatePicker = React.forwardRef<
       setHighlightedPart(null);
     };
 
-    const handleWheel = (event: React.WheelEvent, part: string) => {
+    // const handleWheel = (event: React.WheelEvent, part: string) => {
+    const handleWheel = (event: React.WheelEvent) => {
       event.preventDefault();
       setSelectedRange(null);
       if (highlightedPart === "firstDay") {
@@ -402,145 +444,158 @@ export const CalendarDatePicker = React.forwardRef<
         </style>
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <PopoverTrigger asChild>
-            <Button
+            <button
+              className="w-full flex items-center gap-2"
               id="date"
               ref={ref}
               {...props}
-              className={cn(
-                "w-auto",
-                multiSelectVariants({ variant, className })
-              )}
-              onClick={handleTogglePopover}
-              suppressHydrationWarning
+              
+                onClick={handleTogglePopover}
+                suppressHydrationWarning
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              <span>
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      <span
-                        id={`firstDay-${id}`}
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "firstDay" &&
-                            "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("firstDay")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "dd")}
-                      </span>{" "}
-                      <span
-                        id={`firstMonth-${id}`}
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "firstMonth" &&
-                            "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("firstMonth")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "LLL")}
-                      </span>
-                      ,{" "}
-                      <span
-                        id={`firstYear-${id}`}
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "firstYear" &&
-                            "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("firstYear")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "y")}
-                      </span>
-                      {numberOfMonths === 2 && (
-                        <>
-                          {" - "}
-                          <span
-                            id={`secondDay-${id}`}
-                            className={cn(
-                              "date-part",
-                              highlightedPart === "secondDay" &&
-                                "underline font-bold"
-                            )}
-                            onMouseOver={() => handleMouseOver("secondDay")}
-                            onMouseLeave={handleMouseLeave}
-                          >
-                            {formatWithTz(date.to, "dd")}
-                          </span>{" "}
-                          <span
-                            id={`secondMonth-${id}`}
-                            className={cn(
-                              "date-part",
-                              highlightedPart === "secondMonth" &&
-                                "underline font-bold"
-                            )}
-                            onMouseOver={() => handleMouseOver("secondMonth")}
-                            onMouseLeave={handleMouseLeave}
-                          >
-                            {formatWithTz(date.to, "LLL")}
-                          </span>
-                          ,{" "}
-                          <span
-                            id={`secondYear-${id}`}
-                            className={cn(
-                              "date-part",
-                              highlightedPart === "secondYear" &&
-                                "underline font-bold"
-                            )}
-                            onMouseOver={() => handleMouseOver("secondYear")}
-                            onMouseLeave={handleMouseLeave}
-                          >
-                            {formatWithTz(date.to, "y")}
-                          </span>
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span
-                        id="day"
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "day" && "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("day")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "dd")}
-                      </span>{" "}
-                      <span
-                        id="month"
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "month" && "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("month")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "LLL")}
-                      </span>
-                      ,{" "}
-                      <span
-                        id="year"
-                        className={cn(
-                          "date-part",
-                          highlightedPart === "year" && "underline font-bold"
-                        )}
-                        onMouseOver={() => handleMouseOver("year")}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {formatWithTz(date.from, "y")}
-                      </span>
-                    </>
-                  )
-                ) : (
-                  <span>Pick a date</span>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+                className={cn(
+                  "w-full flex items-center justify-start h-9 px-4 py-2",
+                  multiSelectVariants({ variant, className })
                 )}
-              </span>
-            </Button>
+              >
+                <span>
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        <span
+                          id={`firstDay-${id}`}
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "firstDay" &&
+                              "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("firstDay")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "dd")}
+                        </span>{" "}
+                        <span
+                          id={`firstMonth-${id}`}
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "firstMonth" &&
+                              "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("firstMonth")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "LLL")}
+                        </span>
+                        ,{" "}
+                        <span
+                          id={`firstYear-${id}`}
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "firstYear" &&
+                              "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("firstYear")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "y")}
+                        </span>
+                        {numberOfMonths === 2 && (
+                          <>
+                            {" - "}
+                            <span
+                              id={`secondDay-${id}`}
+                              className={cn(
+                                "date-part",
+                                highlightedPart === "secondDay" &&
+                                  "underline font-bold"
+                              )}
+                              onMouseOver={() => handleMouseOver("secondDay")}
+                              onMouseLeave={handleMouseLeave}
+                            >
+                              {formatWithTz(date.to, "dd")}
+                            </span>{" "}
+                            <span
+                              id={`secondMonth-${id}`}
+                              className={cn(
+                                "date-part",
+                                highlightedPart === "secondMonth" &&
+                                  "underline font-bold"
+                              )}
+                              onMouseOver={() => handleMouseOver("secondMonth")}
+                              onMouseLeave={handleMouseLeave}
+                            >
+                              {formatWithTz(date.to, "LLL")}
+                            </span>
+                            ,{" "}
+                            <span
+                              id={`secondYear-${id}`}
+                              className={cn(
+                                "date-part",
+                                highlightedPart === "secondYear" &&
+                                  "underline font-bold"
+                              )}
+                              onMouseOver={() => handleMouseOver("secondYear")}
+                              onMouseLeave={handleMouseLeave}
+                            >
+                              {formatWithTz(date.to, "y")}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          id="day"
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "day" && "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("day")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "dd")}
+                        </span>{" "}
+                        <span
+                          id="month"
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "month" && "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("month")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "LLL")}
+                        </span>
+                        ,{" "}
+                        <span
+                          id="year"
+                          className={cn(
+                            "date-part",
+                            highlightedPart === "year" && "underline font-bold"
+                          )}
+                          onMouseOver={() => handleMouseOver("year")}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          {formatWithTz(date.from, "y")}
+                        </span>
+                      </>
+                    )
+                  ) : (
+                    <span>Selecionar data</span>
+                  )}
+                </span>
+              </div>
+              <div className="bg-primary flex items-center justify-center rounded-md p-2.5">
+                <CalendarIcon className="h-4 w-4 dark:text-neutral-800 text-neutral-100" />
+              </div>
+            </button>
           </PopoverTrigger>
           {isPopoverOpen && (
             <PopoverContent
@@ -583,85 +638,228 @@ export const CalendarDatePicker = React.forwardRef<
                 <div className="flex flex-col">
                   <div className="flex items-center gap-4">
                     <div className="flex gap-2 ml-3">
-                      <Select
-                        onValueChange={(value) => {
-                          handleMonthChange(months.indexOf(value), "from");
-                          setSelectedRange(null);
-                        }}
-                        value={
-                          monthFrom ? months[monthFrom.getMonth()] : undefined
-                        }
-                      >
-                        <SelectTrigger className="hidden sm:flex w-[122px] focus:ring-0 focus:ring-offset-0 font-medium hover:bg-accent hover:text-accent-foreground">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {months.map((month, idx) => (
-                            <SelectItem key={idx} value={month}>
-                              {month}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        onValueChange={(value) => {
-                          handleYearChange(Number(value), "from");
-                          setSelectedRange(null);
-                        }}
-                        value={yearFrom ? yearFrom.toString() : undefined}
-                      >
-                        <SelectTrigger className="hidden sm:flex w-[122px] focus:ring-0 focus:ring-offset-0 font-medium hover:bg-accent hover:text-accent-foreground">
-                          <SelectValue placeholder="Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {years.map((year, idx) => (
-                            <SelectItem key={idx} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {/* Mês De (From) com Autocomplete */}
+                      <div className="relative">
+                        <Input
+                          placeholder="Mês"
+                          className="w-[122px]"
+                          value={isEditingMonthFrom ? monthFromInput : (monthFrom ? months[monthFrom.getMonth()] : "")}
+                          onChange={(e) => {
+                            setMonthFromInput(e.target.value);
+                            setIsEditingMonthFrom(true);
+                            setShowMonthFromDropdown(true);
+                          }}
+                          onFocus={() => {
+                            setIsEditingMonthFrom(true);
+                            setMonthFromInput(monthFrom ? months[monthFrom.getMonth()] : "");
+                            setShowMonthFromDropdown(true);
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => {
+                              setShowMonthFromDropdown(false);
+                              setIsEditingMonthFrom(false);
+                              setMonthFromInput("");
+                            }, 200);
+                          }}
+                        />
+                        {showMonthFromDropdown && isEditingMonthFrom && (
+                          <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-md max-h-40 overflow-y-auto">
+                            {getFilteredMonths(monthFromInput).map((month, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-2 hover:bg-accent cursor-pointer"
+                                onClick={() => {
+                                  handleMonthChange(months.indexOf(month), "from");
+                                  setMonthFromInput("");
+                                  setIsEditingMonthFrom(false);
+                                  setShowMonthFromDropdown(false);
+                                  setSelectedRange(null);
+                                }}
+                              >
+                                {month}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Ano De (From) com Autocomplete */}
+                      <div className="relative">
+                        <Input
+                          placeholder="Ano"
+                          className="w-[122px]"
+                          type="number"
+                          min={minYear}
+                          max={maxYear}
+                          value={isEditingYearFrom ? yearFromInput : (yearFrom ? yearFrom.toString() : "")}
+                          onChange={(e) => {
+                            setYearFromInput(e.target.value);
+                            setIsEditingYearFrom(true);
+                            setShowYearFromDropdown(true);
+                          }}
+                          onFocus={() => {
+                            setIsEditingYearFrom(true);
+                            setYearFromInput(yearFrom ? yearFrom.toString() : "");
+                            setShowYearFromDropdown(true);
+                          }}
+                          onBlur={(e) => {
+                            const year = parseInt(e.target.value);
+                            if (!isNaN(year) && year >= minYear && year <= maxYear) {
+                              handleYearChange(year, "from");
+                              setSelectedRange(null);
+                            }
+                            setTimeout(() => {
+                              setShowYearFromDropdown(false);
+                              setIsEditingYearFrom(false);
+                              setYearFromInput("");
+                            }, 200);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const year = parseInt(yearFromInput);
+                              if (!isNaN(year) && year >= minYear && year <= maxYear) {
+                                handleYearChange(year, "from");
+                                setYearFromInput("");
+                                setIsEditingYearFrom(false);
+                                setShowYearFromDropdown(false);
+                                setSelectedRange(null);
+                              }
+                            }
+                          }}
+                        />
+                        {showYearFromDropdown && isEditingYearFrom && yearFromInput && (
+                          <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-md max-h-40 overflow-y-auto">
+                            {getFilteredYears(yearFromInput).slice(0, 10).map((year) => (
+                              <div
+                                key={year}
+                                className="px-3 py-2 hover:bg-accent cursor-pointer"
+                                onClick={() => {
+                                  handleYearChange(year, "from");
+                                  setYearFromInput("");
+                                  setIsEditingYearFrom(false);
+                                  setShowYearFromDropdown(false);
+                                  setSelectedRange(null);
+                                }}
+                              >
+                                {year}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
                     {numberOfMonths === 2 && (
                       <div className="flex gap-2">
-                        <Select
-                          onValueChange={(value) => {
-                            handleMonthChange(months.indexOf(value), "to");
-                            setSelectedRange(null);
-                          }}
-                          value={
-                            monthTo ? months[monthTo.getMonth()] : undefined
-                          }
-                        >
-                          <SelectTrigger className="hidden sm:flex w-[122px] focus:ring-0 focus:ring-offset-0 font-medium hover:bg-accent hover:text-accent-foreground">
-                            <SelectValue placeholder="Month" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {months.map((month, idx) => (
-                              <SelectItem key={idx} value={month}>
-                                {month}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          onValueChange={(value) => {
-                            handleYearChange(Number(value), "to");
-                            setSelectedRange(null);
-                          }}
-                          value={yearTo ? yearTo.toString() : undefined}
-                        >
-                          <SelectTrigger className="hidden sm:flex w-[122px] focus:ring-0 focus:ring-offset-0 font-medium hover:bg-accent hover:text-accent-foreground">
-                            <SelectValue placeholder="Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {years.map((year, idx) => (
-                              <SelectItem key={idx} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/* Mês Até (To) com Autocomplete */}
+                        <div className="relative">
+                          <Input
+                            placeholder="Mês"
+                            className="w-[122px]"
+                            value={isEditingMonthTo ? monthToInput : (monthTo ? months[monthTo.getMonth()] : "")}
+                            onChange={(e) => {
+                              setMonthToInput(e.target.value);
+                              setIsEditingMonthTo(true);
+                              setShowMonthToDropdown(true);
+                            }}
+                            onFocus={() => {
+                              setIsEditingMonthTo(true);
+                              setMonthToInput(monthTo ? months[monthTo.getMonth()] : "");
+                              setShowMonthToDropdown(true);
+                            }}
+                            onBlur={() => {
+                              setTimeout(() => {
+                                setShowMonthToDropdown(false);
+                                setIsEditingMonthTo(false);
+                                setMonthToInput("");
+                              }, 200);
+                            }}
+                          />
+                          {showMonthToDropdown && isEditingMonthTo && (
+                            <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-md max-h-40 overflow-y-auto">
+                              {getFilteredMonths(monthToInput).map((month, idx) => (
+                                <div
+                                  key={idx}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer"
+                                  onClick={() => {
+                                    handleMonthChange(months.indexOf(month), "to");
+                                    setMonthToInput("");
+                                    setIsEditingMonthTo(false);
+                                    setShowMonthToDropdown(false);
+                                    setSelectedRange(null);
+                                  }}
+                                >
+                                  {month}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ano Até (To) com Autocomplete */}
+                        <div className="relative">
+                          <Input
+                            placeholder="Ano"
+                            className="w-[122px]"
+                            type="number"
+                            min={minYear}
+                            max={maxYear}
+                            value={isEditingYearTo ? yearToInput : (yearTo ? yearTo.toString() : "")}
+                            onChange={(e) => {
+                              setYearToInput(e.target.value);
+                              setIsEditingYearTo(true);
+                              setShowYearToDropdown(true);
+                            }}
+                            onFocus={() => {
+                              setIsEditingYearTo(true);
+                              setYearToInput(yearTo ? yearTo.toString() : "");
+                              setShowYearToDropdown(true);
+                            }}
+                            onBlur={(e) => {
+                              const year = parseInt(e.target.value);
+                              if (!isNaN(year) && year >= minYear && year <= maxYear) {
+                                handleYearChange(year, "to");
+                                setSelectedRange(null);
+                              }
+                              setTimeout(() => {
+                                setShowYearToDropdown(false);
+                                setIsEditingYearTo(false);
+                                setYearToInput("");
+                              }, 200);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const year = parseInt(yearToInput);
+                                if (!isNaN(year) && year >= minYear && year <= maxYear) {
+                                  handleYearChange(year, "to");
+                                  setYearToInput("");
+                                  setIsEditingYearTo(false);
+                                  setShowYearToDropdown(false);
+                                  setSelectedRange(null);
+                                }
+                              }
+                            }}
+                          />
+                          {showYearToDropdown && isEditingYearTo && yearToInput && (
+                            <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-md max-h-40 overflow-y-auto">
+                              {getFilteredYears(yearToInput).slice(0, 10).map((year) => (
+                                <div
+                                  key={year}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer"
+                                  onClick={() => {
+                                    handleYearChange(year, "to");
+                                    setYearToInput("");
+                                    setIsEditingYearTo(false);
+                                    setShowYearToDropdown(false);
+                                    setSelectedRange(null);
+                                  }}
+                                >
+                                  {year}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
